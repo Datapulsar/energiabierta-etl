@@ -1,60 +1,63 @@
 import os
-import requests
-import pandas as pd
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
+from drive_functions import (
+    load_csv_from_drive,
+    subir_csv_a_drive,
+    buscar_o_crear_carpeta,
+    buscar_archivo_por_nombre,
+    eliminar_archivo_de_drive
+)
 
-# Configuración
-SHORT_URL = "https://3b9x.short.gy/IlgSPa"
-EXCEL_PATH = 'data.xlsx'
-CSV_PATH = 'data.csv'
-CREDENTIALS_PATH = 'credentials/client_secret_904574209764-ps80ppu2snj7rm8cukoqrpakrltlifan.apps.googleusercontent.com.json'
-SCOPES = ['https://www.googleapis.com/auth/drive.file']
-
-# 1. Descargar archivo desde la web
-def download_excel(short_url, save_path):
-    response = requests.get(short_url, allow_redirects=True)
-    if response.status_code == 200:
-        content_type = response.headers.get("Content-Type", "")
-        if "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" in content_type or b'PK' in response.content[:2]:
-            with open(save_path, 'wb') as f:
-                f.write(response.content)
-            print(f"✅ Archivo Excel descargado: {save_path}")
-        else:
-            print("⚠️ El contenido no parece ser un archivo Excel.")
-            print("Primeros caracteres:", response.content[:200])
-    else:
-        print(f"❌ Error al descargar el archivo: {response.status_code}")
-
-# 2. Convertir Excel a CSV
-def excel_to_csv(excel_path, csv_path):
-    try:
-        df = pd.read_excel(excel_path)
-        df.to_csv(csv_path, index=False)
-        print(f"✅ Archivo convertido a CSV: {csv_path}")
-    except Exception as e:
-        print(f"❌ Error al convertir Excel a CSV: {e}")
-
-# 3. Subir archivo a Google Drive
-def upload_to_drive(file_path, file_name):
+def authenticate_google_drive():
+    SCOPES = ['https://www.googleapis.com/auth/drive.file']
     creds = None
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    if not creds or not creds.valid:
-        flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_PATH, SCOPES)
-        creds = flow.run_local_server(port=0)
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
-    service = build('drive', 'v3', credentials=creds)
-    file_metadata = {'name': file_name}
-    media = MediaFileUpload(file_path, mimetype='text/csv', resumable=True)
-    file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-    print(f"✅ Archivo subido a Google Drive con ID: {file.get('id')}")
+    token_path = 'token.json'
+    client_secret_path = 'credentials/client_secret_904574209764-ps80ppu2snj7rm8cukoqrpakrltlifan.apps.googleusercontent.com.json'
 
-# 4. Ejecutar flujo completo
-if __name__ == "__main__":
-    download_excel(SHORT_URL, EXCEL_PATH)
-    excel_to_csv(EXCEL_PATH, CSV_PATH)
-    upload_to_drive(CSV_PATH, 'data.csv')
+    if os.path.exists(token_path):
+        from google.oauth2.credentials import Credentials
+        creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(client_secret_path, SCOPES)
+            creds = flow.run_local_server(port=0)
+        with open(token_path, 'w') as token:
+            token.write(creds.to_json())
+    return build('drive', 'v3', credentials=creds)
+
+def main():
+    service = authenticate_google_drive()
+
+    # Buscar carpeta destino
+    carpeta_drive_id = buscar_o_crear_carpeta(service, "Datos Energía Abierta")
+
+    # Buscar archivo existente en la carpeta
+    nombre_archivo = "archivo.csv"
+    file_id = buscar_archivo_por_nombre(service, nombre_archivo, carpeta_drive_id)
+
+    if file_id:
+        # Si el archivo ya existe, lo eliminamos primero
+        eliminar_archivo_de_drive(service, file_id)
+        print(f"Archivo '{nombre_archivo}' existente eliminado de Google Drive.")
+
+    # Crear nuevo DataFrame (aquí puedes insertar tu lógica ETL real)
+    import pandas as pd
+    df = pd.DataFrame([{"mensaje": "nuevo archivo generado"}])  # Cambiar por tus datos reales
+    print("Nuevo archivo generado:")
+    print(df.head())
+
+    # Guardar localmente
+    os.makedirs("data", exist_ok=True)
+    ruta_csv = os.path.join("data", nombre_archivo)
+    df.to_csv(ruta_csv, index=False)
+    print(f"Archivo CSV guardado en: {ruta_csv}")
+
+    # Subir el archivo nuevo a la carpeta de Google Drive
+    subir_csv_a_drive(service, ruta_csv, carpeta_drive_id)
+
+if __name__ == '__main__':
+    main()
