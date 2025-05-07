@@ -1,3 +1,15 @@
+# Entorno virtual
 venv/
+
+# Archivos temporales de Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.log
+
+# Archivos sensibles
+token.json
+client_secret_*.json
+
+# Datos descargados
+*.xlsx
+*.csv
