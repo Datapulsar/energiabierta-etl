@@ -1,15 +1,23 @@
 # Entorno virtual
 venv/
+.env
 
-# Archivos temporales de Python
+# Archivos temporales y compilados de Python
 __pycache__/
 *.py[cod]
 *.log
+*.tmp
+
+# Archivos de configuración del sistema
+.DS_Store
+.ipynb_checkpoints/
 
 # Archivos sensibles
 token.json
+credentials/
 client_secret_*.json
 
-# Datos descargados
+# Archivos de datos locales (descargados o generados)
 *.xlsx
 *.csv
+data/

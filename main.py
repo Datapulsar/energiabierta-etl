@@ -1,9 +1,10 @@
 import os
+import requests
+import pandas as pd
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from drive_functions import (
-    load_csv_from_drive,
     subir_csv_a_drive,
     buscar_o_crear_carpeta,
     buscar_archivo_por_nombre,
@@ -29,34 +30,38 @@ def authenticate_google_drive():
             token.write(creds.to_json())
     return build('drive', 'v3', credentials=creds)
 
+def descargar_excel_desde_web(url, ruta_destino):
+    response = requests.get(url)
+    response.raise_for_status()
+    with open(ruta_destino, 'wb') as f:
+        f.write(response.content)
+    print(f"Archivo Excel descargado en: {ruta_destino}")
+
 def main():
     service = authenticate_google_drive()
 
-    # Buscar carpeta destino
-    carpeta_drive_id = buscar_o_crear_carpeta(service, "Datos Energía Abierta")
-
-    # Buscar archivo existente en la carpeta
-    nombre_archivo = "archivo.csv"
-    file_id = buscar_archivo_por_nombre(service, nombre_archivo, carpeta_drive_id)
-
-    if file_id:
-        # Si el archivo ya existe, lo eliminamos primero
-        eliminar_archivo_de_drive(service, file_id)
-        print(f"Archivo '{nombre_archivo}' existente eliminado de Google Drive.")
-
-    # Crear nuevo DataFrame (aquí puedes insertar tu lógica ETL real)
-    import pandas as pd
-    df = pd.DataFrame([{"mensaje": "nuevo archivo generado"}])  # Cambiar por tus datos reales
-    print("Nuevo archivo generado:")
-    print(df.head())
-
-    # Guardar localmente
+    # 1. Descargar archivo Excel
     os.makedirs("data", exist_ok=True)
-    ruta_csv = os.path.join("data", nombre_archivo)
+    ruta_excel = "data/archivo.xlsx"
+    url = "https://3b9x.short.gy/IlgSPa"
+    descargar_excel_desde_web(url, ruta_excel)
+
+    # 2. Convertir a CSV
+    df = pd.read_excel(ruta_excel)
+    ruta_csv = "data/archivo.csv"
     df.to_csv(ruta_csv, index=False)
     print(f"Archivo CSV guardado en: {ruta_csv}")
 
-    # Subir el archivo nuevo a la carpeta de Google Drive
+    # 3. Buscar o crear carpeta en Google Drive
+    carpeta_drive_id = buscar_o_crear_carpeta(service, "Datos Energía Abierta")
+
+    # 4. Verificar si ya existe el archivo y eliminarlo
+    file_id_existente = buscar_archivo_por_nombre(service, "archivo.csv", carpeta_drive_id)
+    if file_id_existente:
+        eliminar_archivo_de_drive(service, file_id_existente)
+        print("Archivo existente en Google Drive eliminado.")
+
+    # 5. Subir el nuevo archivo CSV
     subir_csv_a_drive(service, ruta_csv, carpeta_drive_id)
 
 if __name__ == '__main__':

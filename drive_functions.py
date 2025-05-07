@@ -43,6 +43,7 @@ def buscar_archivo_por_nombre(service, nombre_archivo, carpeta_id):
     results = service.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
     archivos = results.get('files', [])
     return archivos[0]['id'] if archivos else None
+
 def eliminar_archivo_de_drive(service, file_id):
     """Elimina un archivo de Google Drive usando su ID"""
     service.files().delete(fileId=file_id).execute()
