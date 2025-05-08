@@ -1,7 +1,7 @@
 import os
 import io
-import pandas as pd
 from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
+import pandas as pd
 
 def load_csv_from_drive(service, file_id):
     """Descarga un archivo CSV desde Google Drive y lo carga como DataFrame"""
@@ -23,6 +23,26 @@ def subir_csv_a_drive(service, ruta_local, folder_id=None):
     media = MediaFileUpload(ruta_local, mimetype='text/csv')
     file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
     print(f"Archivo subido a Drive con ID: {file.get('id')}")
+
+def subir_archivo_a_drive(service, ruta_local, folder_id=None):
+    """Sube un archivo a una carpeta específica en Google Drive (generalizado para cualquier tipo de archivo)"""
+    file_metadata = {'name': os.path.basename(ruta_local)}
+    if folder_id:
+        file_metadata['parents'] = [folder_id]
+    
+    # Establecer el tipo MIME según la extensión del archivo
+    if ruta_local.endswith('.csv'):
+        mimetype = 'text/csv'
+    elif ruta_local.endswith('.pdf'):
+        mimetype = 'application/pdf'
+    elif ruta_local.endswith('.docx'):
+        mimetype = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    else:
+        mimetype = 'application/octet-stream'  # Para otros tipos de archivo
+    
+    media = MediaFileUpload(ruta_local, mimetype=mimetype)
+    file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+    print(f"Archivo {os.path.basename(ruta_local)} subido a Google Drive con ID: {file.get('id')}")
 
 def buscar_o_crear_carpeta(service, nombre_carpeta):
     """Busca una carpeta en Google Drive o la crea si no existe"""

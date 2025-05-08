@@ -10,6 +10,7 @@ from drive_functions import (
     buscar_archivo_por_nombre,
     eliminar_archivo_de_drive
 )
+from report_generator import generar_informe
 
 def authenticate_google_drive():
     SCOPES = ['https://www.googleapis.com/auth/drive.file']
@@ -63,6 +64,9 @@ def main():
 
     # 5. Subir el nuevo archivo CSV
     subir_csv_a_drive(service, ruta_csv, carpeta_drive_id)
+
+    # 6. Generar el informe de análisis estadístico y gráfico (en formato PDF y DOC)
+    generar_informe(df, carpeta_drive_id, service)  # Asegúrate de pasar `service` aquí
 
 if __name__ == '__main__':
     main()
